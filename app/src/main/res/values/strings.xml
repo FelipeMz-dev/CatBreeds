@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">CatBreeds</string>
+    <string name="hint_title">List of Breeds</string>
+    <string name="hint_wiki">WIKI</string>
+    <string name="hint_adaptability_level">Adaptability level:</string>
+    <string name="hint_Energy_level">Energy level:</string>
+    <string name="hint_intelligence_level">Intelligence level</string>
+</resources>
