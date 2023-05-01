@@ -46,7 +46,9 @@ public class ListAdapter extends RecyclerView.Adapter<ListAdapter.ViewHolder> {
         holder.bindData(elementData.get(position));
     }
 
-    public void setItems(List<ListElement> items){elementData = items;}
+    public void setItems(List<ListElement> items){
+        elementData = items;
+    }
 
     public class ViewHolder extends RecyclerView.ViewHolder{
         ImageView imgBreed;

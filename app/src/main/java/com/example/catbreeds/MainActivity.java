@@ -1,17 +1,21 @@
 package com.example.catbreeds;
 
+import android.app.SearchManager;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.StrictMode;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.View;
 import android.widget.Toast;
 
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SearchView;
 import androidx.lifecycle.Observer;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -40,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
     JSONObject images = new JSONObject(); //Api with image url for catsBreeds
     HashMap<String, String> flags = new HashMap<>(); //contain the flag emojis
     RecyclerView recyclerView; //contain the recyclerView to View
+    private static final String URL_API_FLAGS = "https://raw.githubusercontent.com/matiassingers/emoji-flags/master/data.json";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,19 +57,85 @@ public class MainActivity extends AppCompatActivity {
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
 
+        getSupportActionBar().setDisplayShowHomeEnabled(true);
+        getSupportActionBar().setIcon(R.mipmap.ic_launcher);
+
         getCountryFlags();
         getDataApi();
+
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the options menu from XML
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.search, menu);
+
+        // Get the SearchView and set the searchable configuration
+        SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
+        SearchView searchView = (SearchView) menu.findItem(R.id.app_bar_search).getActionView();
+        // Assumes current activity is the searchable activity
+        searchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                onSearch(query);
+                searchView.onActionViewCollapsed();
+                searchView.setSubmitButtonEnabled(false);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+
+        });
+        searchView.setOnSearchClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Toast.makeText(MainActivity.this, "check", Toast.LENGTH_SHORT).show();
+                searchView.setSubmitButtonEnabled(true);
+                if (searchView.isSubmitButtonEnabled()){
+                    //restore search
+                    listAdapter.setItems(elements);
+                    recyclerView.getRecycledViewPool().clear();
+                    listAdapter.notifyDataSetChanged();
+                }
+            }
+        });
+        return true;
     }
     /**
-     * cargue los datos de raza para el servicio api y asigne en JSONArray {@link #breeds}
-     * @see ApiHelper#GetData() -Servicio API utilizado
+     * Writhe the result of search in #queryElements and apply the changes in {@link #recyclerView}
+     * @param query get the query of #searchView on submit
+     * **/
+    private void onSearch(String query){
+        List<ListElement> queryElements = new ArrayList<>();
+        String formatQuery = query.toLowerCase().trim();
+
+        for (ListElement element:elements){
+            if (element.getNameBreed().toLowerCase().contains(formatQuery)){
+                queryElements.add(element); //search for name
+            }else if (element.getOriginBreed().toLowerCase().contains(formatQuery)){
+                queryElements.add(element);//search for origin
+            }
+        }
+        Toast.makeText(this, String.valueOf(queryElements.size())+" Results", Toast.LENGTH_SHORT).show();
+        // reload the recycler view
+        listAdapter.setItems(queryElements);
+        recyclerView.getRecycledViewPool().clear();
+        listAdapter.notifyDataSetChanged();
+    }
+    /**
+     * load breed data for api service and assign in JSONArray {@link #breeds}
+     * @see ApiHelper#GetData() -Servicio API used
      * **/
     public void getDataApi() {
         ApiHelper api = new ApiHelper(getApplicationContext());
         api.getResult().observe(
                 this,
                 new Observer<ApiResult>() {
-                    @RequiresApi(api = Build.VERSION_CODES.O)
                     @Override
                     public void onChanged(ApiResult apiResult) {
                         if (apiResult == null) {
@@ -83,7 +154,6 @@ public class MainActivity extends AppCompatActivity {
      * @see ApiHelper#GetFlags(String)
      * **/
     public void getCountryFlags() {
-        String urlApiFlags = "https://raw.githubusercontent.com/matiassingers/emoji-flags/master/data.json";
         ApiHelper api = new ApiHelper(getApplicationContext());
         api.getResult().observe(
                 this,
@@ -104,14 +174,14 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
         );
-        api.GetFlags(urlApiFlags);
+        api.GetFlags(URL_API_FLAGS);
     }
     /**
-     * cargue las imágenes de URL para razas en el servicio api y asigne en JSONObject {@link #images}
-     * @param referenceImage ID de referencia de la imagen en el servicio api
-     * @param id obtener el id de la raza para que coincida con la imagen de referencia en JSONObject
-     * @param finalize finaliza la carga de imágenes para el servicio api e inicializa el {@link #loadImages()}
-     * @see ApiHelper#GetData() -Servicio API utilizado
+     * Load the breeds images from URL in api service and writhe in JSONObject {@link #images}
+     * @param referenceImage ID reference by image from api service
+     * @param id set the id of breed to writhe in JSONObject
+     * @param finalize when process end, do {@link #loadImages()}
+     * @see ApiHelper#GetData() API service used
      * **/
     public void getImageCat(String referenceImage, String id, boolean finalize) {
 
@@ -127,7 +197,6 @@ public class MainActivity extends AppCompatActivity {
                             JSONObject object = apiResult.getObjResult();
                             String url = object.getString("url");
                             images.put(id, url);
-                            Log.e("image", id + " - " + url);
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
@@ -138,8 +207,8 @@ public class MainActivity extends AppCompatActivity {
 
     }
     /**
-     * complete y muestre el recyclerView con {@link #listAdapter}
-     * luego cargue las imágenes de URL para {@link #getImageCat(String, String, boolean)}
+     * fill and show recyclerView with {@link #listAdapter}
+     * then load the URL images for {@link #getImageCat(String, String, boolean)}
      * **/
     public void fillCards() {
         Toast.makeText(MainActivity.this, "Loading...", Toast.LENGTH_SHORT).show();
@@ -206,8 +275,8 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
     /**
-     * carga las imágenes desde la url en {@link #images}.
-     * Use #Thread para hacer un proceso asíncrono
+     * writhe the images of url in {@link #images}.
+     * Use #Thread to do async process
      * **/
     public void loadImages() {
         new Thread(new Runnable() {
